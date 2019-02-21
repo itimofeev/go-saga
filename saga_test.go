@@ -25,8 +25,8 @@ func TestName(t *testing.T) {
 	m2 := &mock{}
 	comp := &mock{}
 
-	s.AddStep("first", m.f, comp.f)
-	s.AddStep("second", m2.f, comp.f)
+	s.AddStep(&Step{Name: "first", Func: m.f, CompensateFunc: comp.f})
+	s.AddStep(&Step{Name: "second", Func: m2.f, CompensateFunc: comp.f})
 	s.Play()
 
 	require.Equal(t, m.callCounter, 1)
@@ -40,7 +40,7 @@ func TestNameErr(t *testing.T) {
 	m := &mock{err: errors.New("hello")}
 	comp := &mock{}
 
-	s.AddStep("single", m.f, comp.f)
+	s.AddStep(&Step{Name: "single", Func: m.f, CompensateFunc: comp.f})
 	s.Play()
 
 	require.Equal(t, m.callCounter, 1)
@@ -54,8 +54,8 @@ func TestNameErr2(t *testing.T) {
 	comp := &mock{}
 	m2 := &mock{err: errors.New("hello")}
 
-	s.AddStep("first", m.f, comp.f)
-	s.AddStep("second", m2.f, comp.f)
+	s.AddStep(&Step{Name: "first", Func: m.f, CompensateFunc: comp.f})
+	s.AddStep(&Step{Name: "second", Func: m2.f, CompensateFunc: comp.f})
 	s.Play()
 
 	require.Equal(t, m.callCounter, 1)
@@ -71,8 +71,8 @@ func TestNameErr3(t *testing.T) {
 	comp := &mock{}
 	m2 := &mock{}
 
-	s.AddStep("first", m.f, comp.f)
-	s.AddStep("second", m2.f, comp.f)
+	s.AddStep(&Step{Name: "first", Func: m.f, CompensateFunc: comp.f})
+	s.AddStep(&Step{Name: "second", Func: m2.f, CompensateFunc: comp.f})
 	s.Play()
 
 	require.Equal(t, m.callCounter, 1)
@@ -100,7 +100,7 @@ func TestNameErr4(t *testing.T) {
 		return nil
 	}
 
-	s.AddStep("first", f1, f2)
+	s.AddStep(&Step{Name: "first", Func: f1, CompensateFunc: f2})
 	s.Play()
 
 	require.Equal(t, callCount1, 1)

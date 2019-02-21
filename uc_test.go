@@ -21,19 +21,19 @@ func TestName77(t *testing.T) {
 
 	sagas := NewSaga(context.Background(), "", New())
 
-	sagas.AddStep("", func(ctx context.Context) (interface{}, error) {
+	sagas.AddStep(&Step{Name: "", Func: func(ctx context.Context) (interface{}, error) {
 		return s.addTransfer("", "one", 10)
-	}, func(ctx context.Context, t1 *Transfer) error {
+	}, CompensateFunc: func(ctx context.Context, t1 *Transfer) error {
 		fmt.Println("hello!")
 		return s.removeTransfer(t1)
-	})
+	}})
 
-	sagas.AddStep("", func(ctx context.Context) (interface{}, error) {
+	sagas.AddStep(&Step{Name: "", Func: func(ctx context.Context) (interface{}, error) {
 		t2, _ := s.addTransfer("two", "one", 20)
 		return t2, errors.New("hello")
-	}, func(ctx context.Context, t2 *Transfer) error {
+	}, CompensateFunc: func(ctx context.Context, t2 *Transfer) error {
 		return s.removeTransfer(t2)
-	})
+	}})
 
 	fmt.Println(s.calcBudget())
 }

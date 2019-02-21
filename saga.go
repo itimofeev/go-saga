@@ -18,11 +18,14 @@ func NewSaga(ctx context.Context, name string, store Store) *Saga {
 	}
 }
 
+type StepOptions struct {
+}
+
 type Step struct {
-	name           string
-	number         int
-	directFunc     interface{}
-	compensateFunc interface{}
+	Name           string
+	Func           interface{}
+	CompensateFunc interface{}
+	Options        *StepOptions
 }
 
 type Saga struct {
@@ -60,14 +63,9 @@ func (saga *Saga) Play() {
 	}))
 }
 
-func (saga *Saga) AddStep(name string, f interface{}, compensate interface{}) {
+func (saga *Saga) AddStep(step *Step) {
 	// FIXME check that f and compensate are correct and return an error
-	saga.steps = append(saga.steps, &Step{
-		name:           name,
-		number:         len(saga.steps),
-		directFunc:     f,
-		compensateFunc: compensate,
-	})
+	saga.steps = append(saga.steps, step)
 }
 
 func (saga *Saga) abort() {
@@ -93,7 +91,7 @@ func (saga *Saga) compensateStep(i int) {
 		Time:        time.Now(),
 		Type:        LogTypeSagaStepCompensate,
 		StepNumber:  &i,
-		StepName:    &saga.steps[i].name,
+		StepName:    &saga.steps[i].Name,
 	}))
 
 	params := make([]reflect.Value, 0)
@@ -117,11 +115,11 @@ func (saga *Saga) execStep(i int) {
 		Time:        time.Now(),
 		Type:        LogTypeSagaStepExec,
 		StepNumber:  &i,
-		StepName:    &saga.steps[i].name,
+		StepName:    &saga.steps[i].Name,
 	}))
 
-	f := saga.steps[i].directFunc
-	compensate := saga.steps[i].compensateFunc
+	f := saga.steps[i].Func
+	compensate := saga.steps[i].CompensateFunc
 
 	params := []reflect.Value{reflect.ValueOf(saga.ctx)}
 	resp := getFuncValue(f).Call(params)
