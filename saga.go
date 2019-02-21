@@ -29,9 +29,9 @@ type Saga struct {
 	ExecutionID string
 	Name        string
 
-	params       [][]reflect.Value
-	toCompensate []reflect.Value
-	aborted      bool
+	returnedValuesFromFunc [][]reflect.Value
+	toCompensate           []reflect.Value
+	aborted                bool
 
 	steps []*Step
 
@@ -98,9 +98,9 @@ func (saga *Saga) compensateStep(i int) {
 
 	params := make([]reflect.Value, 0)
 	params = append(params, reflect.ValueOf(saga.ctx))
-	params = addParams(params, saga.params[i])
-	value := saga.toCompensate[i]
-	res := value.Call(params)
+	params = addParams(params, saga.returnedValuesFromFunc[i])
+	compensateFunc := saga.toCompensate[i]
+	res := compensateFunc.Call(params)
 	if isReturnError(res) {
 		panic(res[0])
 	}
@@ -127,7 +127,7 @@ func (saga *Saga) execStep(i int) {
 	resp := getFuncValue(f).Call(params)
 
 	saga.toCompensate = append(saga.toCompensate, getFuncValue(compensate))
-	saga.params = append(saga.params, resp)
+	saga.returnedValuesFromFunc = append(saga.returnedValuesFromFunc, resp)
 
 	if isReturnError(resp) {
 		saga.abort()
@@ -141,18 +141,14 @@ func isReturnError(result []reflect.Value) bool {
 	return false
 }
 
-func addParams(values []reflect.Value, returned interface{}) []reflect.Value {
+func addParams(values []reflect.Value, returned []reflect.Value) []reflect.Value {
 	if returned == nil {
 		return values
 	}
 
-	t := reflect.TypeOf(returned)
-	v := reflect.ValueOf(returned)
-	if t.Kind() != reflect.Slice {
-		values = append(values, reflect.ValueOf(returned))
-	} else if v.Len() > 1 { // expect that this is error
-		for i := 1; i < v.Len(); i++ {
-			values = append(values, v.Index(i))
+	if len(returned) > 1 { // expect that this is error
+		for i := 0; i < len(returned)-1; i++ {
+			values = append(values, returned[i])
 		}
 	}
 	return values

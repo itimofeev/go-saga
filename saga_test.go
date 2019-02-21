@@ -82,3 +82,30 @@ func TestNameErr3(t *testing.T) {
 	logs, _ := logStore.GetAllLogsByExecutionID(s.ExecutionID)
 	litter.Dump(logs)
 }
+
+func TestNameErr4(t *testing.T) {
+	logStore := New()
+	s := NewSaga(context.Background(), "hello", logStore)
+
+	callCount1 := 0
+	callCount2 := 0
+
+	f1 := func(ctx context.Context) (string, error) {
+		callCount1++
+		return "hello", errors.New("some error")
+	}
+	f2 := func(ctx context.Context, s string) error {
+		callCount2++
+		require.Equal(t, "hello", s)
+		return nil
+	}
+
+	s.AddStep("first", f1, f2)
+	s.Play()
+
+	require.Equal(t, callCount1, 1)
+	require.Equal(t, callCount2, 1)
+
+	logs, _ := logStore.GetAllLogsByExecutionID(s.ExecutionID)
+	litter.Dump(logs)
+}
