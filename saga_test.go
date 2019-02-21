@@ -101,8 +101,9 @@ func TestNameErr4(t *testing.T) {
 	}
 
 	s.AddStep(&Step{Name: "first", Func: f1, CompensateFunc: f2})
-	s.Play()
+	err := s.Play()
 
+	require.EqualError(t, err.Err, "some error")
 	require.Equal(t, callCount1, 1)
 	require.Equal(t, callCount2, 1)
 

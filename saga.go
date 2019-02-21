@@ -28,6 +28,10 @@ type Step struct {
 	Options        *StepOptions
 }
 
+type Result struct {
+	Err error
+}
+
 type Saga struct {
 	ExecutionID string
 	Name        string
@@ -35,6 +39,7 @@ type Saga struct {
 	returnedValuesFromFunc [][]reflect.Value
 	toCompensate           []reflect.Value
 	aborted                bool
+	err                    error
 
 	steps []*Step
 
@@ -43,7 +48,7 @@ type Saga struct {
 	logStore Store
 }
 
-func (saga *Saga) Play() {
+func (saga *Saga) Play() *Result {
 	checkErr(saga.logStore.AppendLog(&Log{
 		ExecutionID: saga.ExecutionID,
 		Name:        saga.Name,
@@ -61,6 +66,7 @@ func (saga *Saga) Play() {
 		Time:        time.Now(),
 		Type:        LogTypeSagaComplete,
 	}))
+	return &Result{Err: saga.err}
 }
 
 func (saga *Saga) AddStep(step *Step) {
@@ -99,8 +105,8 @@ func (saga *Saga) compensateStep(i int) {
 	params = addParams(params, saga.returnedValuesFromFunc[i])
 	compensateFunc := saga.toCompensate[i]
 	res := compensateFunc.Call(params)
-	if isReturnError(res) {
-		panic(res[0])
+	if err := isReturnError(res); err != nil {
+		panic(err)
 	}
 }
 
@@ -127,16 +133,17 @@ func (saga *Saga) execStep(i int) {
 	saga.toCompensate = append(saga.toCompensate, getFuncValue(compensate))
 	saga.returnedValuesFromFunc = append(saga.returnedValuesFromFunc, resp)
 
-	if isReturnError(resp) {
+	if err := isReturnError(resp); err != nil {
+		saga.err = err
 		saga.abort()
 	}
 }
 
-func isReturnError(result []reflect.Value) bool {
+func isReturnError(result []reflect.Value) error {
 	if len(result) > 0 && !result[len(result)-1].IsNil() {
-		return true
+		return result[len(result)-1].Interface().(error)
 	}
-	return false
+	return nil
 }
 
 func addParams(values []reflect.Value, returned []reflect.Value) []reflect.Value {
