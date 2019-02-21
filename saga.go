@@ -142,10 +142,6 @@ func isReturnError(result []reflect.Value) bool {
 }
 
 func addParams(values []reflect.Value, returned []reflect.Value) []reflect.Value {
-	if returned == nil {
-		return values
-	}
-
 	if len(returned) > 1 { // expect that this is error
 		for i := 0; i < len(returned)-1; i++ {
 			values = append(values, returned[i])
