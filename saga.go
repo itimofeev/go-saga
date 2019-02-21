@@ -3,14 +3,13 @@ package saga
 import (
 	"context"
 	"errors"
-	"github.com/itimofeev/go-saga/log"
 	llog "log"
 	"math/rand"
 	"reflect"
 	"time"
 )
 
-func NewSaga(ctx context.Context, name string, store log.Store) *Saga {
+func NewSaga(ctx context.Context, name string, store Store) *Saga {
 	return &Saga{
 		ctx:         ctx,
 		Name:        name,
@@ -38,26 +37,26 @@ type Saga struct {
 
 	ctx context.Context
 
-	logStore log.Store
+	logStore Store
 }
 
 func (saga *Saga) Play() {
-	checkErr(saga.logStore.AppendLog(&log.Log{
+	checkErr(saga.logStore.AppendLog(&Log{
 		ExecutionID: saga.ExecutionID,
 		Name:        saga.Name,
 		Time:        time.Now(),
-		Type:        log.LogTypeStartSaga,
+		Type:        LogTypeStartSaga,
 	}))
 
 	for i := 0; i < len(saga.steps); i++ {
 		saga.execStep(i)
 	}
 
-	checkErr(saga.logStore.AppendLog(&log.Log{
+	checkErr(saga.logStore.AppendLog(&Log{
 		ExecutionID: saga.ExecutionID,
 		Name:        saga.Name,
 		Time:        time.Now(),
-		Type:        log.LogTypeSagaComplete,
+		Type:        LogTypeSagaComplete,
 	}))
 }
 
@@ -73,11 +72,11 @@ func (saga *Saga) AddStep(name string, f interface{}, compensate interface{}) {
 
 func (saga *Saga) abort() {
 	stepsToCompensate := len(saga.toCompensate)
-	checkErr(saga.logStore.AppendLog(&log.Log{
+	checkErr(saga.logStore.AppendLog(&Log{
 		ExecutionID: saga.ExecutionID,
 		Name:        saga.Name,
 		Time:        time.Now(),
-		Type:        log.LogTypeSagaAbort,
+		Type:        LogTypeSagaAbort,
 		StepNumber:  &stepsToCompensate,
 	}))
 
@@ -88,11 +87,11 @@ func (saga *Saga) abort() {
 }
 
 func (saga *Saga) compensateStep(i int) {
-	checkErr(saga.logStore.AppendLog(&log.Log{
+	checkErr(saga.logStore.AppendLog(&Log{
 		ExecutionID: saga.ExecutionID,
 		Name:        saga.Name,
 		Time:        time.Now(),
-		Type:        log.LogTypeSagaStepCompensate,
+		Type:        LogTypeSagaStepCompensate,
 		StepNumber:  &i,
 		StepName:    &saga.steps[i].name,
 	}))
@@ -112,11 +111,11 @@ func (saga *Saga) execStep(i int) {
 		return
 	}
 
-	checkErr(saga.logStore.AppendLog(&log.Log{
+	checkErr(saga.logStore.AppendLog(&Log{
 		ExecutionID: saga.ExecutionID,
 		Name:        saga.Name,
 		Time:        time.Now(),
-		Type:        log.LogTypeSagaStepExec,
+		Type:        LogTypeSagaStepExec,
 		StepNumber:  &i,
 		StepName:    &saga.steps[i].name,
 	}))

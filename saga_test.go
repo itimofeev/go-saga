@@ -1,9 +1,8 @@
-package memory
+package saga
 
 import (
 	"context"
 	"errors"
-	"github.com/itimofeev/go-saga"
 	"github.com/sanity-io/litter"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -20,7 +19,7 @@ func (t *mock) f(ctx context.Context) error {
 }
 
 func TestName(t *testing.T) {
-	s := saga.NewSaga(context.Background(), "err4", New())
+	s := NewSaga(context.Background(), "err4", New())
 
 	m := &mock{}
 	m2 := &mock{}
@@ -36,7 +35,7 @@ func TestName(t *testing.T) {
 }
 
 func TestNameErr(t *testing.T) {
-	s := saga.NewSaga(context.Background(), "err3", New())
+	s := NewSaga(context.Background(), "err3", New())
 
 	m := &mock{err: errors.New("hello")}
 	comp := &mock{}
@@ -49,7 +48,7 @@ func TestNameErr(t *testing.T) {
 }
 
 func TestNameErr2(t *testing.T) {
-	s := saga.NewSaga(context.Background(), "err2", New())
+	s := NewSaga(context.Background(), "err2", New())
 
 	m := &mock{}
 	comp := &mock{}
@@ -66,7 +65,7 @@ func TestNameErr2(t *testing.T) {
 
 func TestNameErr3(t *testing.T) {
 	logStore := New()
-	s := saga.NewSaga(context.Background(), "hello", logStore)
+	s := NewSaga(context.Background(), "hello", logStore)
 
 	m := &mock{err: errors.New("hello")}
 	comp := &mock{}

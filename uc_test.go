@@ -1,10 +1,9 @@
-package memory
+package saga
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/itimofeev/go-saga"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -20,7 +19,7 @@ func TestName77(t *testing.T) {
 
 	fmt.Println(s.calcBudget())
 
-	sagas := saga.NewSaga(context.Background(), "", New())
+	sagas := NewSaga(context.Background(), "", New())
 
 	sagas.AddStep("", func(ctx context.Context) (interface{}, error) {
 		return s.addTransfer("", "one", 10)
@@ -68,7 +67,7 @@ func (s *budget) addTransfer(from string, to string, amount int) (*Transfer, err
 		From:   from,
 		To:     to,
 		amount: amount,
-		ID:     saga.RandString(),
+		ID:     RandString(),
 	}
 	s.s = append(s.s, transfer)
 	return transfer, nil
