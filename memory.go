@@ -22,6 +22,20 @@ func (s *store) GetAllLogsByExecutionID(executionID string) ([]*Log, error) {
 	return nil, errors.New("no logs found")
 }
 
+func (s *store) GetStepLogsToCompensate(executionID string) ([]*Log, error) {
+	logs, ok := s.m[executionID]
+	if !ok {
+		return nil, errors.New("no logs found")
+	}
+	var res []*Log
+	for i := len(logs) - 1; i >= 0; i-- {
+		if logs[i].Type == LogTypeSagaStepExec {
+			res = append(res, logs[i])
+		}
+	}
+	return res, nil
+}
+
 func (s *store) AppendLog(log *Log) error {
 	s.m[log.ExecutionID] = append(s.m[log.ExecutionID], log)
 	return nil

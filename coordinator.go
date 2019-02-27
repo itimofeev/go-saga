@@ -2,6 +2,7 @@ package saga
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -20,11 +21,9 @@ func NewCoordinator(ctx context.Context, saga *Saga, logStore Store) *ExecutionC
 type ExecutionCoordinator struct {
 	ExecutionID string
 
-	returnedValuesFromFunc [][]reflect.Value
-	toCompensate           []reflect.Value
-	aborted                bool
-	executionError         error
-	compensateErrors       []error
+	aborted          bool
+	executionError   error
+	compensateErrors []error
 
 	ctx context.Context
 
@@ -59,32 +58,52 @@ func (c *ExecutionCoordinator) execStep(i int) {
 		return
 	}
 
-	checkErr(c.logStore.AppendLog(&Log{
+	f := c.saga.steps[i].Func
+
+	params := []reflect.Value{reflect.ValueOf(c.ctx)}
+	resp := getFuncValue(f).Call(params)
+	err := isReturnError(resp)
+
+	marshaledResp, marshalErr := marshalResp(resp[:len(resp)-1])
+	checkErr(marshalErr)
+
+	stepLog := &Log{
 		ExecutionID: c.ExecutionID,
 		Name:        c.saga.Name,
 		Time:        time.Now(),
 		Type:        LogTypeSagaStepExec,
 		StepNumber:  &i,
 		StepName:    &c.saga.steps[i].Name,
-	}))
+		StepPayload: marshaledResp,
+	}
 
-	f := c.saga.steps[i].Func
-	compensate := c.saga.steps[i].CompensateFunc
+	if err != nil {
+		errStr := err.Error()
+		stepLog.StepError = &errStr
+	}
 
-	params := []reflect.Value{reflect.ValueOf(c.ctx)}
-	resp := getFuncValue(f).Call(params)
+	checkErr(c.logStore.AppendLog(stepLog))
 
-	c.toCompensate = append(c.toCompensate, getFuncValue(compensate))
-	c.returnedValuesFromFunc = append(c.returnedValuesFromFunc, resp)
-
-	if err := isReturnError(resp); err != nil {
+	if err != nil {
 		c.executionError = err
 		c.abort()
 	}
 }
 
+func marshalResp(resp []reflect.Value) ([]byte, error) {
+	slice := make([]interface{}, 0, len(resp))
+	for _, value := range resp {
+		slice = append(slice, value.Interface())
+	}
+
+	return json.Marshal(slice)
+}
+
 func (c *ExecutionCoordinator) abort() {
-	stepsToCompensate := len(c.toCompensate)
+	toCompensateLogs, err := c.logStore.GetStepLogsToCompensate(c.ExecutionID)
+	checkErr(err, "c.logStore.GetAllLogsByExecutionID(c.ExecutionID)")
+
+	stepsToCompensate := len(toCompensateLogs)
 	checkErr(c.logStore.AppendLog(&Log{
 		ExecutionID: c.ExecutionID,
 		Name:        c.saga.Name,
@@ -94,14 +113,52 @@ func (c *ExecutionCoordinator) abort() {
 	}))
 
 	c.aborted = true
-	for i := stepsToCompensate - 1; i >= 0; i-- {
-		if err := c.compensateStep(i); err != nil {
+	for i := 0; i < stepsToCompensate; i++ {
+		toCompensateLog := toCompensateLogs[i]
+
+		compensateFuncRaw := c.saga.steps[*toCompensateLog.StepNumber].CompensateFunc
+		compensateFuncValue := getFuncValue(compensateFuncRaw)
+		compensateRuncType := reflect.TypeOf(compensateFuncRaw)
+
+		types := make([]reflect.Type, 0, compensateRuncType.NumIn())
+		for i := 1; i < compensateRuncType.NumIn(); i++ {
+			types = append(types, compensateRuncType.In(i))
+		}
+		unmarshal, err := unmarshalParams(types, toCompensateLog.StepPayload)
+		checkErr(err, "unmarshalParams()")
+
+		params := make([]reflect.Value, 0)
+		params = append(params, reflect.ValueOf(c.ctx))
+		params = append(params, unmarshal...)
+
+		if err := c.compensateStep(*toCompensateLog.StepNumber, params, compensateFuncValue); err != nil {
 			c.compensateErrors = append(c.compensateErrors, err)
 		}
 	}
 }
 
-func (c *ExecutionCoordinator) compensateStep(i int) error {
+func unmarshalParams(types []reflect.Type, payload []byte) ([]reflect.Value, error) {
+	rawVals := make([]interface{}, 0, len(types))
+	for _, typ := range types {
+		rawVals = append(rawVals, reflect.New(typ).Interface())
+	}
+
+	checkErr(json.Unmarshal(payload, &rawVals), "json.Unmarshal(payload, &rawVals)")
+	res := make([]reflect.Value, 0, len(types))
+
+	for i := 0; i < len(rawVals); i++ {
+		objV := reflect.ValueOf(rawVals[i])
+
+		if reflect.TypeOf(rawVals[i]).Kind() == reflect.Ptr && objV.Type() != types[i] {
+			objV = objV.Elem()
+		}
+
+		res = append(res, objV)
+	}
+	return res, nil
+}
+
+func (c *ExecutionCoordinator) compensateStep(i int, params []reflect.Value, compensateFunc reflect.Value) error {
 	checkErr(c.logStore.AppendLog(&Log{
 		ExecutionID: c.ExecutionID,
 		Name:        c.saga.Name,
@@ -111,24 +168,11 @@ func (c *ExecutionCoordinator) compensateStep(i int) error {
 		StepName:    &c.saga.steps[i].Name,
 	}))
 
-	params := make([]reflect.Value, 0)
-	params = append(params, reflect.ValueOf(c.ctx))
-	params = addParams(params, c.returnedValuesFromFunc[i])
-	compensateFunc := c.toCompensate[i]
 	res := compensateFunc.Call(params)
 	if err := isReturnError(res); err != nil {
 		return err
 	}
 	return nil
-}
-
-func addParams(values []reflect.Value, returned []reflect.Value) []reflect.Value {
-	if len(returned) > 1 { // expect that this is error
-		for i := 0; i < len(returned)-1; i++ {
-			values = append(values, returned[i])
-		}
-	}
-	return values
 }
 
 func isReturnError(result []reflect.Value) error {

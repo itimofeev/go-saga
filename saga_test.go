@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/stretchr/testify/require"
+	"reflect"
 	"testing"
 )
 
@@ -150,6 +151,8 @@ func TestCompensateReturnsError(t *testing.T) {
 
 	_, err = logStore.GetAllLogsByExecutionID(RandString())
 	require.Error(t, err)
+	_, err = logStore.GetStepLogsToCompensate(RandString())
+	require.Error(t, err)
 }
 
 func TestAddStep(t *testing.T) {
@@ -166,10 +169,53 @@ func TestAddStep(t *testing.T) {
 	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: (&mock{}).f, CompensateFunc: func(int) {}}), "first parameter of a compensate must be of type context.Context")
 	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: (&mock{}).f, CompensateFunc: func(context.Context) {}}), "compensate must must return single value of type error")
 
+	f1 := func(context.Context) (string, int, error) { return "123", 0, nil }
+	f2 := func(context.Context, int) error { return nil }
+	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: f1, CompensateFunc: f2}), "compensate in params not matched to func return values")
+
+	f3 := func(context.Context) (string, int, error) { return "123", 0, nil }
+	f4 := func(context.Context, string, string) error { return nil }
+	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: f3, CompensateFunc: f4}), "param 1 not matched in func and compensate")
+
 	require.Panics(t, func() {
 		checkOK(false)
 	})
 	require.Panics(t, func() {
 		checkErr(errors.New("hello"))
 	})
+}
+
+type someStruct struct {
+	IntField    int    `json:"intField"`
+	StringField string `json:"stringField"`
+}
+
+func TestMarshalResp(t *testing.T) {
+	f := 10
+	s := "hello"
+	th := &someStruct{
+		IntField:    777,
+		StringField: "hi, there",
+	}
+	fourth := someStruct{
+		IntField:    8,
+		StringField: "hello, there",
+	}
+	resp := []reflect.Value{
+		reflect.ValueOf(f),
+		reflect.ValueOf(s),
+		reflect.ValueOf(th),
+		reflect.ValueOf(fourth),
+	}
+	payload, err := marshalResp(resp)
+	require.NoError(t, err)
+	require.Equal(t, `[10,"hello",{"intField":777,"stringField":"hi, there"},{"intField":8,"stringField":"hello, there"}]`, string(payload))
+
+	unm, err := unmarshalParams([]reflect.Type{}, payload)
+	require.NoError(t, err)
+	require.Len(t, unm, len(resp))
+	require.Equal(t, f, resp[0].Interface())
+	require.Equal(t, s, resp[1].Interface())
+	require.Equal(t, th, resp[2].Interface())
+	require.Equal(t, fourth, resp[3].Interface())
 }

@@ -18,9 +18,12 @@ type Log struct {
 	Time        time.Time
 	StepNumber  *int
 	StepName    *string
+	StepError   *string
+	StepPayload []byte
 }
 
 type Store interface {
 	AppendLog(log *Log) error
 	GetAllLogsByExecutionID(executionID string) ([]*Log, error)
+	GetStepLogsToCompensate(executionID string) ([]*Log, error)
 }
