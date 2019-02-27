@@ -18,7 +18,7 @@ func (t *mock) f(ctx context.Context) error {
 	return t.err
 }
 
-func TestName(t *testing.T) {
+func TestSuccessfullyExecTwoSteps(t *testing.T) {
 	s := NewSaga("err4")
 
 	m := &mock{}
@@ -36,7 +36,7 @@ func TestName(t *testing.T) {
 	require.Equal(t, comp.callCounter, 0)
 }
 
-func TestNameErr(t *testing.T) {
+func TestCompensateCalledWhenError(t *testing.T) {
 	s := NewSaga("err3")
 
 	m := &mock{err: errors.New("hello")}
@@ -51,7 +51,7 @@ func TestNameErr(t *testing.T) {
 	require.Equal(t, comp.callCounter, 1)
 }
 
-func TestNameErr2(t *testing.T) {
+func TestCompensateCalledTwiceForTwoSteps(t *testing.T) {
 	s := NewSaga("err2")
 
 	m := &mock{}
@@ -69,7 +69,7 @@ func TestNameErr2(t *testing.T) {
 	require.Equal(t, comp.callCounter, 2)
 }
 
-func TestNameErr3(t *testing.T) {
+func TestCompensateOnlyExecutedSteps(t *testing.T) {
 	logStore := New()
 	s := NewSaga("hello")
 
@@ -91,7 +91,7 @@ func TestNameErr3(t *testing.T) {
 	litter.Dump(logs)
 }
 
-func TestNameErr4(t *testing.T) {
+func TestReturnsError(t *testing.T) {
 	logStore := New()
 	s := NewSaga("hello")
 
