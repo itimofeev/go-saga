@@ -75,5 +75,15 @@ func checkStep(step *Step) error {
 		return errors.New("compensate must must return single value of type error")
 	}
 
+	if compensateType.NumIn() != funcType.NumOut() {
+		return errors.New("compensate in params not matched to func return values")
+	}
+
+	for i := 0; i < compensateType.NumIn()-1; i++ {
+		if compensateType.In(i+1) != funcType.Out(i) {
+			return fmt.Errorf("param %d not matched in func and compensate", i)
+		}
+	}
+
 	return nil
 }
