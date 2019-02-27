@@ -166,4 +166,10 @@ func TestAddStep(t *testing.T) {
 	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: (&mock{}).f, CompensateFunc: func(int) {}}), "first parameter of a compensate must be of type context.Context")
 	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: (&mock{}).f, CompensateFunc: func(context.Context) {}}), "compensate must must return single value of type error")
 
+	require.Panics(t, func() {
+		checkOK(false)
+	})
+	require.Panics(t, func() {
+		checkErr(errors.New("hello"))
+	})
 }
