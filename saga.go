@@ -51,12 +51,8 @@ func checkStep(step *Step) error {
 	if compensateType.Kind() != reflect.Func {
 		return fmt.Errorf("func field is not a func, but %s", compensateType.Kind())
 	}
-
-	if funcType.NumIn() == 0 {
-		return errors.New("func must have at least one parameter context.Context")
-	}
-	if funcType.In(0) != reflect.TypeOf((*context.Context)(nil)).Elem() {
-		return errors.New("first parameter of a func must be of type context.Context")
+	if funcType.NumIn() != 1 || funcType.In(0) != reflect.TypeOf((*context.Context)(nil)).Elem() {
+		return errors.New("func must have strictly one parameter context.Context")
 	}
 	if funcType.NumOut() == 0 {
 		return errors.New("func must have at least one out value of type error")

@@ -160,8 +160,8 @@ func TestAddStep(t *testing.T) {
 
 	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: "hello", CompensateFunc: (&mock{}).f}), "func field is not a func, but string")
 	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: (&mock{}).f, CompensateFunc: 25}), "func field is not a func, but int")
-	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: func() {}, CompensateFunc: (&mock{}).f}), "func must have at least one parameter context.Context")
-	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: func(c int) {}, CompensateFunc: (&mock{}).f}), "first parameter of a func must be of type context.Context")
+	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: func() {}, CompensateFunc: (&mock{}).f}), "func must have strictly one parameter context.Context")
+	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: func(c int) {}, CompensateFunc: (&mock{}).f}), "func must have strictly one parameter context.Context")
 	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: func(ctx context.Context) {}, CompensateFunc: (&mock{}).f}), "func must have at least one out value of type error")
 	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: func(context.Context) int { return 10 }, CompensateFunc: (&mock{}).f}), "last out parameter of func must be of type error")
 
