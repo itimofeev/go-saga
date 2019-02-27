@@ -24,8 +24,8 @@ func TestSuccessfullyExecTwoSteps(t *testing.T) {
 	m2 := &mock{}
 	comp := &mock{}
 
-	s.AddStep(&Step{Name: "first", Func: m.f, CompensateFunc: comp.f})
-	s.AddStep(&Step{Name: "second", Func: m2.f, CompensateFunc: comp.f})
+	require.NoError(t, s.AddStep(&Step{Name: "first", Func: m.f, CompensateFunc: comp.f}))
+	require.NoError(t, s.AddStep(&Step{Name: "second", Func: m2.f, CompensateFunc: comp.f}))
 
 	c := NewCoordinator(context.Background(), s, New())
 	require.Nil(t, c.Play().ExecutionError)
@@ -41,7 +41,7 @@ func TestCompensateCalledWhenError(t *testing.T) {
 	m := &mock{err: errors.New("hello")}
 	comp := &mock{}
 
-	s.AddStep(&Step{Name: "single", Func: m.f, CompensateFunc: comp.f})
+	require.NoError(t, s.AddStep(&Step{Name: "single", Func: m.f, CompensateFunc: comp.f}))
 
 	c := NewCoordinator(context.Background(), s, New())
 	require.Error(t, c.Play().ExecutionError)
@@ -57,8 +57,8 @@ func TestCompensateCalledTwiceForTwoSteps(t *testing.T) {
 	comp := &mock{}
 	m2 := &mock{err: errors.New("hello")}
 
-	s.AddStep(&Step{Name: "first", Func: m.f, CompensateFunc: comp.f})
-	s.AddStep(&Step{Name: "second", Func: m2.f, CompensateFunc: comp.f})
+	require.NoError(t, s.AddStep(&Step{Name: "first", Func: m.f, CompensateFunc: comp.f}))
+	require.NoError(t, s.AddStep(&Step{Name: "second", Func: m2.f, CompensateFunc: comp.f}))
 
 	c := NewCoordinator(context.Background(), s, New())
 	c.Play()
@@ -75,8 +75,8 @@ func TestCompensateOnlyExecutedSteps(t *testing.T) {
 	comp := &mock{}
 	m2 := &mock{}
 
-	s.AddStep(&Step{Name: "first", Func: m.f, CompensateFunc: comp.f})
-	s.AddStep(&Step{Name: "second", Func: m2.f, CompensateFunc: comp.f})
+	require.NoError(t, s.AddStep(&Step{Name: "first", Func: m.f, CompensateFunc: comp.f}))
+	require.NoError(t, s.AddStep(&Step{Name: "second", Func: m2.f, CompensateFunc: comp.f}))
 
 	c := NewCoordinator(context.Background(), s, New())
 	c.Play()
@@ -102,7 +102,7 @@ func TestReturnsError(t *testing.T) {
 		return nil
 	}
 
-	s.AddStep(&Step{Name: "first", Func: f1, CompensateFunc: f2})
+	require.NoError(t, s.AddStep(&Step{Name: "first", Func: f1, CompensateFunc: f2}))
 
 	c := NewCoordinator(context.Background(), s, New())
 	err := c.Play()
@@ -125,8 +125,8 @@ func TestCompensateReturnsError(t *testing.T) {
 		return errors.New("compensate error 2")
 	}
 
-	s.AddStep(&Step{Name: "first", Func: (&mock{}).f, CompensateFunc: errCompensateFirst})
-	s.AddStep(&Step{Name: "second", Func: errFunc, CompensateFunc: errCompensateSecond})
+	require.NoError(t, s.AddStep(&Step{Name: "first", Func: (&mock{}).f, CompensateFunc: errCompensateFirst}))
+	require.NoError(t, s.AddStep(&Step{Name: "second", Func: errFunc, CompensateFunc: errCompensateSecond}))
 
 	logStore := New()
 	c := NewCoordinator(context.Background(), s, logStore)
@@ -150,4 +150,20 @@ func TestCompensateReturnsError(t *testing.T) {
 
 	_, err = logStore.GetAllLogsByExecutionID(RandString())
 	require.Error(t, err)
+}
+
+func TestAddStep(t *testing.T) {
+	s := NewSaga("hello")
+
+	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: "hello", CompensateFunc: (&mock{}).f}), "func field is not a func, but string")
+	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: (&mock{}).f, CompensateFunc: 25}), "func field is not a func, but int")
+	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: func() {}, CompensateFunc: (&mock{}).f}), "func must have at least one parameter context.Context")
+	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: func(c int) {}, CompensateFunc: (&mock{}).f}), "first parameter of a func must be of type context.Context")
+	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: func(ctx context.Context) {}, CompensateFunc: (&mock{}).f}), "func must have at least one out value of type error")
+	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: func(context.Context) int { return 10 }, CompensateFunc: (&mock{}).f}), "last out parameter of func must be of type error")
+
+	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: (&mock{}).f, CompensateFunc: func() {}}), "compensate must have at least one parameter context.Context")
+	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: (&mock{}).f, CompensateFunc: func(int) {}}), "first parameter of a compensate must be of type context.Context")
+	require.EqualError(t, s.AddStep(&Step{Name: "first", Func: (&mock{}).f, CompensateFunc: func(context.Context) {}}), "compensate must must return single value of type error")
+
 }

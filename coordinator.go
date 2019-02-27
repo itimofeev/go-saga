@@ -2,7 +2,7 @@ package saga
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"log"
 	"math/rand"
 	"reflect"
@@ -140,21 +140,21 @@ func isReturnError(result []reflect.Value) error {
 
 func getFuncValue(obj interface{}) reflect.Value {
 	funcValue := reflect.ValueOf(obj)
-	if funcValue.Kind() != reflect.Func {
-		checkErr(errors.New("registered object must be a func"))
-	}
-	if funcValue.Type().NumIn() < 1 ||
-		funcValue.Type().In(0) != reflect.TypeOf((*context.Context)(nil)).Elem() {
-		checkErr(errors.New("first argument must use context.ctx"))
-	}
+	checkOK(funcValue.Kind() == reflect.Func, fmt.Sprintf("registered object must be a func but was %s", funcValue.Kind()))
+
+	checkOK(funcValue.Type().NumIn() >= 1 && funcValue.Type().In(0) == reflect.TypeOf((*context.Context)(nil)).Elem(), "invalid func")
 	return funcValue
 }
 
 func checkErr(err error, msg ...string) {
 	if err != nil {
-		if err != nil {
-			log.Panicln(msg, err)
-		}
+		log.Panicln(msg, err)
+	}
+}
+
+func checkOK(ok bool, msg ...string) {
+	if !ok {
+		log.Panicln(msg)
 	}
 }
 
