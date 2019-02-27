@@ -19,7 +19,7 @@ func (t *mock) f(ctx context.Context) error {
 }
 
 func TestName(t *testing.T) {
-	s := NewSaga(context.Background(), "err4", New())
+	s := NewSaga("err4")
 
 	m := &mock{}
 	m2 := &mock{}
@@ -27,7 +27,9 @@ func TestName(t *testing.T) {
 
 	s.AddStep(&Step{Name: "first", Func: m.f, CompensateFunc: comp.f})
 	s.AddStep(&Step{Name: "second", Func: m2.f, CompensateFunc: comp.f})
-	s.Play()
+
+	c := NewCoordinator(context.Background(), s, New())
+	require.Nil(t, c.Play().Err)
 
 	require.Equal(t, m.callCounter, 1)
 	require.Equal(t, m2.callCounter, 1)
@@ -35,20 +37,22 @@ func TestName(t *testing.T) {
 }
 
 func TestNameErr(t *testing.T) {
-	s := NewSaga(context.Background(), "err3", New())
+	s := NewSaga("err3")
 
 	m := &mock{err: errors.New("hello")}
 	comp := &mock{}
 
 	s.AddStep(&Step{Name: "single", Func: m.f, CompensateFunc: comp.f})
-	s.Play()
+
+	c := NewCoordinator(context.Background(), s, New())
+	require.Error(t, c.Play().Err)
 
 	require.Equal(t, m.callCounter, 1)
 	require.Equal(t, comp.callCounter, 1)
 }
 
 func TestNameErr2(t *testing.T) {
-	s := NewSaga(context.Background(), "err2", New())
+	s := NewSaga("err2")
 
 	m := &mock{}
 	comp := &mock{}
@@ -56,7 +60,9 @@ func TestNameErr2(t *testing.T) {
 
 	s.AddStep(&Step{Name: "first", Func: m.f, CompensateFunc: comp.f})
 	s.AddStep(&Step{Name: "second", Func: m2.f, CompensateFunc: comp.f})
-	s.Play()
+
+	c := NewCoordinator(context.Background(), s, New())
+	c.Play()
 
 	require.Equal(t, m.callCounter, 1)
 	require.Equal(t, m2.callCounter, 1)
@@ -65,7 +71,7 @@ func TestNameErr2(t *testing.T) {
 
 func TestNameErr3(t *testing.T) {
 	logStore := New()
-	s := NewSaga(context.Background(), "hello", logStore)
+	s := NewSaga("hello")
 
 	m := &mock{err: errors.New("hello")}
 	comp := &mock{}
@@ -73,19 +79,21 @@ func TestNameErr3(t *testing.T) {
 
 	s.AddStep(&Step{Name: "first", Func: m.f, CompensateFunc: comp.f})
 	s.AddStep(&Step{Name: "second", Func: m2.f, CompensateFunc: comp.f})
-	s.Play()
+
+	c := NewCoordinator(context.Background(), s, logStore)
+	c.Play()
 
 	require.Equal(t, m.callCounter, 1)
 	require.Equal(t, m2.callCounter, 0)
 	require.Equal(t, comp.callCounter, 1)
 
-	logs, _ := logStore.GetAllLogsByExecutionID(s.ExecutionID)
+	logs, _ := logStore.GetAllLogsByExecutionID(c.ExecutionID)
 	litter.Dump(logs)
 }
 
 func TestNameErr4(t *testing.T) {
 	logStore := New()
-	s := NewSaga(context.Background(), "hello", logStore)
+	s := NewSaga("hello")
 
 	callCount1 := 0
 	callCount2 := 0
@@ -101,12 +109,14 @@ func TestNameErr4(t *testing.T) {
 	}
 
 	s.AddStep(&Step{Name: "first", Func: f1, CompensateFunc: f2})
-	err := s.Play()
+
+	c := NewCoordinator(context.Background(), s, New())
+	err := c.Play()
 
 	require.EqualError(t, err.Err, "some error")
 	require.Equal(t, callCount1, 1)
 	require.Equal(t, callCount2, 1)
 
-	logs, _ := logStore.GetAllLogsByExecutionID(s.ExecutionID)
+	logs, _ := logStore.GetAllLogsByExecutionID(c.ExecutionID)
 	litter.Dump(logs)
 }
