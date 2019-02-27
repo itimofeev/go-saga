@@ -17,7 +17,8 @@ type Step struct {
 }
 
 type Result struct {
-	Err error
+	ExecutionError   error
+	CompensateErrors []error
 }
 
 type Saga struct {

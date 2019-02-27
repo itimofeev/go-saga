@@ -23,7 +23,8 @@ type ExecutionCoordinator struct {
 	returnedValuesFromFunc [][]reflect.Value
 	toCompensate           []reflect.Value
 	aborted                bool
-	err                    error
+	executionError         error
+	compensateErrors       []error
 
 	ctx context.Context
 
@@ -50,7 +51,7 @@ func (c *ExecutionCoordinator) Play() *Result {
 		Time:        time.Now(),
 		Type:        LogTypeSagaComplete,
 	}))
-	return &Result{Err: c.err}
+	return &Result{ExecutionError: c.executionError, CompensateErrors: c.compensateErrors}
 }
 
 func (c *ExecutionCoordinator) execStep(i int) {
@@ -77,7 +78,7 @@ func (c *ExecutionCoordinator) execStep(i int) {
 	c.returnedValuesFromFunc = append(c.returnedValuesFromFunc, resp)
 
 	if err := isReturnError(resp); err != nil {
-		c.err = err
+		c.executionError = err
 		c.abort()
 	}
 }
@@ -94,11 +95,13 @@ func (c *ExecutionCoordinator) abort() {
 
 	c.aborted = true
 	for i := stepsToCompensate - 1; i >= 0; i-- {
-		c.compensateStep(i)
+		if err := c.compensateStep(i); err != nil {
+			c.compensateErrors = append(c.compensateErrors, err)
+		}
 	}
 }
 
-func (c *ExecutionCoordinator) compensateStep(i int) {
+func (c *ExecutionCoordinator) compensateStep(i int) error {
 	checkErr(c.logStore.AppendLog(&Log{
 		ExecutionID: c.ExecutionID,
 		Name:        c.saga.Name,
@@ -114,8 +117,9 @@ func (c *ExecutionCoordinator) compensateStep(i int) {
 	compensateFunc := c.toCompensate[i]
 	res := compensateFunc.Call(params)
 	if err := isReturnError(res); err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
 
 func addParams(values []reflect.Value, returned []reflect.Value) []reflect.Value {

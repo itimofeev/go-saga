@@ -3,7 +3,6 @@ package saga
 import (
 	"context"
 	"errors"
-	"github.com/sanity-io/litter"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -29,7 +28,7 @@ func TestSuccessfullyExecTwoSteps(t *testing.T) {
 	s.AddStep(&Step{Name: "second", Func: m2.f, CompensateFunc: comp.f})
 
 	c := NewCoordinator(context.Background(), s, New())
-	require.Nil(t, c.Play().Err)
+	require.Nil(t, c.Play().ExecutionError)
 
 	require.Equal(t, m.callCounter, 1)
 	require.Equal(t, m2.callCounter, 1)
@@ -45,7 +44,7 @@ func TestCompensateCalledWhenError(t *testing.T) {
 	s.AddStep(&Step{Name: "single", Func: m.f, CompensateFunc: comp.f})
 
 	c := NewCoordinator(context.Background(), s, New())
-	require.Error(t, c.Play().Err)
+	require.Error(t, c.Play().ExecutionError)
 
 	require.Equal(t, m.callCounter, 1)
 	require.Equal(t, comp.callCounter, 1)
@@ -70,7 +69,6 @@ func TestCompensateCalledTwiceForTwoSteps(t *testing.T) {
 }
 
 func TestCompensateOnlyExecutedSteps(t *testing.T) {
-	logStore := New()
 	s := NewSaga("hello")
 
 	m := &mock{err: errors.New("hello")}
@@ -80,19 +78,15 @@ func TestCompensateOnlyExecutedSteps(t *testing.T) {
 	s.AddStep(&Step{Name: "first", Func: m.f, CompensateFunc: comp.f})
 	s.AddStep(&Step{Name: "second", Func: m2.f, CompensateFunc: comp.f})
 
-	c := NewCoordinator(context.Background(), s, logStore)
+	c := NewCoordinator(context.Background(), s, New())
 	c.Play()
 
 	require.Equal(t, m.callCounter, 1)
 	require.Equal(t, m2.callCounter, 0)
 	require.Equal(t, comp.callCounter, 1)
-
-	logs, _ := logStore.GetAllLogsByExecutionID(c.ExecutionID)
-	litter.Dump(logs)
 }
 
 func TestReturnsError(t *testing.T) {
-	logStore := New()
 	s := NewSaga("hello")
 
 	callCount1 := 0
@@ -113,10 +107,47 @@ func TestReturnsError(t *testing.T) {
 	c := NewCoordinator(context.Background(), s, New())
 	err := c.Play()
 
-	require.EqualError(t, err.Err, "some error")
+	require.EqualError(t, err.ExecutionError, "some error")
 	require.Equal(t, callCount1, 1)
 	require.Equal(t, callCount2, 1)
+}
 
-	logs, _ := logStore.GetAllLogsByExecutionID(c.ExecutionID)
-	litter.Dump(logs)
+func TestCompensateReturnsError(t *testing.T) {
+	s := NewSaga("hello")
+
+	errFunc := func(ctx context.Context) error {
+		return errors.New("some error")
+	}
+	errCompensateFirst := func(ctx context.Context) error {
+		return errors.New("compensate error 1")
+	}
+	errCompensateSecond := func(ctx context.Context) error {
+		return errors.New("compensate error 2")
+	}
+
+	s.AddStep(&Step{Name: "first", Func: (&mock{}).f, CompensateFunc: errCompensateFirst})
+	s.AddStep(&Step{Name: "second", Func: errFunc, CompensateFunc: errCompensateSecond})
+
+	logStore := New()
+	c := NewCoordinator(context.Background(), s, logStore)
+	result := c.Play()
+
+	require.EqualError(t, result.ExecutionError, "some error")
+	require.Len(t, result.CompensateErrors, 2)
+	require.EqualError(t, result.CompensateErrors[0], "compensate error 2")
+	require.EqualError(t, result.CompensateErrors[1], "compensate error 1")
+
+	logs, err := logStore.GetAllLogsByExecutionID(c.ExecutionID)
+	require.NoError(t, err)
+	require.Len(t, logs, 7)
+	require.Equal(t, logs[0].Type, LogTypeStartSaga)
+	require.Equal(t, logs[1].Type, LogTypeSagaStepExec)
+	require.Equal(t, logs[2].Type, LogTypeSagaStepExec)
+	require.Equal(t, logs[3].Type, LogTypeSagaAbort)
+	require.Equal(t, logs[4].Type, LogTypeSagaStepCompensate)
+	require.Equal(t, logs[5].Type, LogTypeSagaStepCompensate)
+	require.Equal(t, logs[6].Type, LogTypeSagaComplete)
+
+	_, err = logStore.GetAllLogsByExecutionID(RandString())
+	require.Error(t, err)
 }
