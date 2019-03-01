@@ -12,9 +12,10 @@ import (
 
 func NewCoordinator(ctx context.Context, saga *Saga, logStore Store) *ExecutionCoordinator {
 	return &ExecutionCoordinator{
-		ctx:      ctx,
-		saga:     saga,
-		logStore: logStore,
+		ExecutionID: RandString(),
+		ctx:         ctx,
+		saga:        saga,
+		logStore:    logStore,
 	}
 }
 
