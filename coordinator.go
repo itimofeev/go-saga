@@ -10,14 +10,14 @@ import (
 	"time"
 )
 
-func NewCoordinator(ctx context.Context, saga *Saga, logStore Store, coordinatorID ...string) *ExecutionCoordinator {
+func NewCoordinator(ctx context.Context, saga *Saga, logStore Store, executionID ...string) *ExecutionCoordinator {
 	c := &ExecutionCoordinator{
 		ctx:      ctx,
 		saga:     saga,
 		logStore: logStore,
 	}
-	if len(coordinatorID) > 0 {
-		c.ExecutionID = coordinatorID[0]
+	if len(executionID) > 0 {
+		c.ExecutionID = executionID[0]
 	} else {
 		c.ExecutionID = RandString()
 	}

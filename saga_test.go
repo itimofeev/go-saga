@@ -36,6 +36,33 @@ func TestSuccessfullyExecTwoSteps(t *testing.T) {
 	require.Equal(t, comp.callCounter, 0)
 }
 
+func TestSuccessfullyExecTwoSteps_WithCustomizeExecutionID(t *testing.T) {
+	s := NewSaga("err4")
+
+	m := &mock{}
+	m2 := &mock{}
+	comp := &mock{}
+
+	require.NoError(t, s.AddStep(&Step{Name: "first", Func: m.f, CompensateFunc: comp.f}))
+	require.NoError(t, s.AddStep(&Step{Name: "second", Func: m2.f, CompensateFunc: comp.f}))
+
+	logStore := New()
+	executionID := RandString()
+	c := NewCoordinator(context.Background(), s, logStore, executionID)
+	require.Nil(t, c.Play().ExecutionError)
+
+	require.Equal(t, m.callCounter, 1)
+	require.Equal(t, m2.callCounter, 1)
+	require.Equal(t, comp.callCounter, 0)
+
+	logs, err := logStore.GetAllLogsByExecutionID(executionID)
+	require.NoError(t, err)
+
+	for _, log := range logs {
+		require.Equal(t, log.ExecutionID, executionID)
+	}
+}
+
 func TestCompensateCalledWhenError(t *testing.T) {
 	s := NewSaga("err3")
 
