@@ -10,13 +10,18 @@ import (
 	"time"
 )
 
-func NewCoordinator(ctx context.Context, saga *Saga, logStore Store) *ExecutionCoordinator {
-	return &ExecutionCoordinator{
-		ExecutionID: RandString(),
-		ctx:         ctx,
-		saga:        saga,
-		logStore:    logStore,
+func NewCoordinator(ctx context.Context, saga *Saga, logStore Store, executionID ...string) *ExecutionCoordinator {
+	c := &ExecutionCoordinator{
+		ctx:      ctx,
+		saga:     saga,
+		logStore: logStore,
 	}
+	if len(executionID) > 0 {
+		c.ExecutionID = executionID[0]
+	} else {
+		c.ExecutionID = RandString()
+	}
+	return c
 }
 
 type ExecutionCoordinator struct {
