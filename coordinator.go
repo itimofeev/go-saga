@@ -10,11 +10,12 @@ import (
 	"time"
 )
 
-func NewCoordinator(ctx context.Context, saga *Saga, logStore Store, executionID ...string) *ExecutionCoordinator {
+func NewCoordinator(funcsCtx, compensateFuncsCtx context.Context, saga *Saga, logStore Store, executionID ...string) *ExecutionCoordinator {
 	c := &ExecutionCoordinator{
-		ctx:      ctx,
-		saga:     saga,
-		logStore: logStore,
+		funcsCtx:           funcsCtx,
+		compensateFuncsCtx: compensateFuncsCtx,
+		saga:               saga,
+		logStore:           logStore,
 	}
 	if len(executionID) > 0 {
 		c.ExecutionID = executionID[0]
@@ -31,7 +32,8 @@ type ExecutionCoordinator struct {
 	executionError   error
 	compensateErrors []error
 
-	ctx context.Context
+	funcsCtx           context.Context
+	compensateFuncsCtx context.Context
 
 	saga *Saga
 
@@ -66,7 +68,7 @@ func (c *ExecutionCoordinator) execStep(i int) {
 
 	f := c.saga.steps[i].Func
 
-	params := []reflect.Value{reflect.ValueOf(c.ctx)}
+	params := []reflect.Value{reflect.ValueOf(c.funcsCtx)}
 	resp := getFuncValue(f).Call(params)
 	err := isReturnError(resp)
 
@@ -134,7 +136,7 @@ func (c *ExecutionCoordinator) abort() {
 		checkErr(err, "unmarshalParams()")
 
 		params := make([]reflect.Value, 0)
-		params = append(params, reflect.ValueOf(c.ctx))
+		params = append(params, reflect.ValueOf(c.compensateFuncsCtx))
 		params = append(params, unmarshal...)
 
 		if err := c.compensateStep(*toCompensateLog.StepNumber, params, compensateFuncValue); err != nil {

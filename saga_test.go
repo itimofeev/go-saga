@@ -28,7 +28,7 @@ func TestSuccessfullyExecTwoSteps(t *testing.T) {
 	require.NoError(t, s.AddStep(&Step{Name: "first", Func: m.f, CompensateFunc: comp.f}))
 	require.NoError(t, s.AddStep(&Step{Name: "second", Func: m2.f, CompensateFunc: comp.f}))
 
-	c := NewCoordinator(context.Background(), s, New())
+	c := NewCoordinator(context.Background(), context.Background(), s, New())
 	require.Nil(t, c.Play().ExecutionError)
 
 	require.Equal(t, m.callCounter, 1)
@@ -48,7 +48,7 @@ func TestSuccessfullyExecTwoSteps_WithCustomizeExecutionID(t *testing.T) {
 
 	logStore := New()
 	executionID := RandString()
-	c := NewCoordinator(context.Background(), s, logStore, executionID)
+	c := NewCoordinator(context.Background(), context.Background(), s, logStore, executionID)
 	require.Nil(t, c.Play().ExecutionError)
 
 	require.Equal(t, m.callCounter, 1)
@@ -71,7 +71,7 @@ func TestCompensateCalledWhenError(t *testing.T) {
 
 	require.NoError(t, s.AddStep(&Step{Name: "single", Func: m.f, CompensateFunc: comp.f}))
 
-	c := NewCoordinator(context.Background(), s, New())
+	c := NewCoordinator(context.Background(), context.Background(), s, New())
 	require.Error(t, c.Play().ExecutionError)
 
 	require.Equal(t, m.callCounter, 1)
@@ -88,7 +88,7 @@ func TestCompensateCalledTwiceForTwoSteps(t *testing.T) {
 	require.NoError(t, s.AddStep(&Step{Name: "first", Func: m.f, CompensateFunc: comp.f}))
 	require.NoError(t, s.AddStep(&Step{Name: "second", Func: m2.f, CompensateFunc: comp.f}))
 
-	c := NewCoordinator(context.Background(), s, New())
+	c := NewCoordinator(context.Background(), context.Background(), s, New())
 	c.Play()
 
 	require.Equal(t, m.callCounter, 1)
@@ -106,7 +106,7 @@ func TestCompensateOnlyExecutedSteps(t *testing.T) {
 	require.NoError(t, s.AddStep(&Step{Name: "first", Func: m.f, CompensateFunc: comp.f}))
 	require.NoError(t, s.AddStep(&Step{Name: "second", Func: m2.f, CompensateFunc: comp.f}))
 
-	c := NewCoordinator(context.Background(), s, New())
+	c := NewCoordinator(context.Background(), context.Background(), s, New())
 	c.Play()
 
 	require.Equal(t, m.callCounter, 1)
@@ -132,7 +132,7 @@ func TestReturnsError(t *testing.T) {
 
 	require.NoError(t, s.AddStep(&Step{Name: "first", Func: f1, CompensateFunc: f2}))
 
-	c := NewCoordinator(context.Background(), s, New())
+	c := NewCoordinator(context.Background(), context.Background(), s, New())
 	err := c.Play()
 
 	require.EqualError(t, err.ExecutionError, "some error")
@@ -157,7 +157,7 @@ func TestCompensateReturnsError(t *testing.T) {
 	require.NoError(t, s.AddStep(&Step{Name: "second", Func: errFunc, CompensateFunc: errCompensateSecond}))
 
 	logStore := New()
-	c := NewCoordinator(context.Background(), s, logStore)
+	c := NewCoordinator(context.Background(), context.Background(), s, logStore)
 	result := c.Play()
 
 	require.EqualError(t, result.ExecutionError, "some error")
