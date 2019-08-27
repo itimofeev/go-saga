@@ -12,14 +12,15 @@ const (
 )
 
 type Log struct {
-	ExecutionID string
-	Name        string
-	Type        string
-	Time        time.Time
-	StepNumber  *int
-	StepName    *string
-	StepError   *string
-	StepPayload []byte
+	ExecutionID  string
+	Name         string
+	Type         string
+	Time         time.Time
+	StepNumber   *int
+	StepName     *string
+	StepError    *string
+	StepPayload  []byte
+	StepDuration time.Duration
 }
 
 type Store interface {
