@@ -94,12 +94,11 @@ func (c *ExecutionCoordinator) execStep(i int) {
 	}
 
 	checkErr(c.logStore.AppendLog(stepLog))
+	stepLog.StepDuration = time.Since(start)
 	if err != nil {
 		c.executionError = err
-		stepLog.StepDuration = time.Since(start)
 		c.abort()
 	}
-	stepLog.StepDuration = time.Since(start)
 }
 
 func marshalResp(resp []reflect.Value) ([]byte, error) {
