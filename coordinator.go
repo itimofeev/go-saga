@@ -41,6 +41,7 @@ type ExecutionCoordinator struct {
 }
 
 func (c *ExecutionCoordinator) Play() *Result {
+	executionStart := time.Now()
 	checkErr(c.logStore.AppendLog(&Log{
 		ExecutionID: c.ExecutionID,
 		Name:        c.saga.Name,
@@ -53,10 +54,11 @@ func (c *ExecutionCoordinator) Play() *Result {
 	}
 
 	checkErr(c.logStore.AppendLog(&Log{
-		ExecutionID: c.ExecutionID,
-		Name:        c.saga.Name,
-		Time:        time.Now(),
-		Type:        LogTypeSagaComplete,
+		ExecutionID:  c.ExecutionID,
+		Name:         c.saga.Name,
+		Time:         time.Now(),
+		Type:         LogTypeSagaComplete,
+		StepDuration: time.Since(executionStart),
 	}))
 	return &Result{ExecutionError: c.executionError, CompensateErrors: c.compensateErrors}
 }
@@ -65,7 +67,7 @@ func (c *ExecutionCoordinator) execStep(i int) {
 	if c.aborted {
 		return
 	}
-
+	start := time.Now()
 	f := c.saga.steps[i].Func
 
 	params := []reflect.Value{reflect.ValueOf(c.funcsCtx)}
@@ -76,13 +78,14 @@ func (c *ExecutionCoordinator) execStep(i int) {
 	checkErr(marshalErr)
 
 	stepLog := &Log{
-		ExecutionID: c.ExecutionID,
-		Name:        c.saga.Name,
-		Time:        time.Now(),
-		Type:        LogTypeSagaStepExec,
-		StepNumber:  &i,
-		StepName:    &c.saga.steps[i].Name,
-		StepPayload: marshaledResp,
+		ExecutionID:  c.ExecutionID,
+		Name:         c.saga.Name,
+		Time:         time.Now(),
+		Type:         LogTypeSagaStepExec,
+		StepNumber:   &i,
+		StepName:     &c.saga.steps[i].Name,
+		StepPayload:  marshaledResp,
+		StepDuration: time.Since(start),
 	}
 
 	if err != nil {
@@ -91,7 +94,7 @@ func (c *ExecutionCoordinator) execStep(i int) {
 	}
 
 	checkErr(c.logStore.AppendLog(stepLog))
-
+	stepLog.StepDuration = time.Since(start)
 	if err != nil {
 		c.executionError = err
 		c.abort()
