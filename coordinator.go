@@ -41,7 +41,7 @@ type ExecutionCoordinator struct {
 }
 
 func (c *ExecutionCoordinator) Play() *Result {
-	startStepDurations := time.Now()
+	executionStart := time.Now()
 	checkErr(c.logStore.AppendLog(&Log{
 		ExecutionID: c.ExecutionID,
 		Name:        c.saga.Name,
@@ -58,7 +58,7 @@ func (c *ExecutionCoordinator) Play() *Result {
 		Name:         c.saga.Name,
 		Time:         time.Now(),
 		Type:         LogTypeSagaComplete,
-		StepDuration: time.Since(startStepDurations),
+		StepDuration: time.Since(executionStart),
 	}))
 	return &Result{ExecutionError: c.executionError, CompensateErrors: c.compensateErrors}
 }
