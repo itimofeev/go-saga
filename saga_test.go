@@ -140,6 +140,32 @@ func TestReturnsError(t *testing.T) {
 	require.Equal(t, callCount2, 1)
 }
 
+func TestReturnsErrorWithNilArgument(t *testing.T) {
+	s := NewSaga("hello")
+
+	callCount1 := 0
+	callCount2 := 0
+
+	f1 := func(ctx context.Context) ([]string, error) {
+		callCount1++
+		return nil, errors.New("some error")
+	}
+	f2 := func(ctx context.Context, s []string) error {
+		callCount2++
+		require.Nil(t, s)
+		return nil
+	}
+
+	require.NoError(t, s.AddStep(&Step{Name: "first", Func: f1, CompensateFunc: f2}))
+
+	c := NewCoordinator(context.Background(), context.Background(), s, New())
+	err := c.Play()
+
+	require.EqualError(t, err.ExecutionError, "some error")
+	require.Equal(t, callCount1, 1)
+	require.Equal(t, callCount2, 1)
+}
+
 func TestCompensateReturnsError(t *testing.T) {
 	s := NewSaga("hello")
 

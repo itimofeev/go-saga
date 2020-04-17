@@ -160,7 +160,9 @@ func unmarshalParams(types []reflect.Type, payload []byte) ([]reflect.Value, err
 	for i := 0; i < len(rawVals); i++ {
 		objV := reflect.ValueOf(rawVals[i])
 
-		if reflect.TypeOf(rawVals[i]).Kind() == reflect.Ptr && objV.Type() != types[i] {
+		if rawVals[i] == nil {
+			objV = reflect.Zero(types[i])
+		} else if reflect.TypeOf(rawVals[i]).Kind() == reflect.Ptr && objV.Type() != types[i] {
 			objV = objV.Elem()
 		}
 
