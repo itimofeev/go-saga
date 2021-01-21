@@ -5,6 +5,8 @@ This library implements Choreography-based saga pattern. This pattern used when 
 Often in microservice architecture we need to do some actions in one service, then send request to second service, then send notification via third service.
 Saga allows defining compensation functions for each step that will be automatically applied in case of error on any step.
 
+You can read more details about this pattern here https://microservices.io/patterns/data/saga.html#example-choreography-based-saga
+
 # Installing
 ```go get github.com/itimofeev/go-saga```
 
