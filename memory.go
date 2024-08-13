@@ -30,7 +30,7 @@ func (s *store) GetStepLogsToCompensate(_ context.Context, executionID string) (
 	}
 	var res []*Log
 	for i := len(logs) - 1; i >= 0; i-- {
-		if logs[i].Type == LogTypeSagaStepExec {
+		if logs[i].Type == LogTypeSagaStepExec && logs[i].StepError == nil {
 			res = append(res, logs[i])
 		}
 	}

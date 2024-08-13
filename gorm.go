@@ -31,7 +31,7 @@ func (g *gormStore) GetAllLogsByExecutionID(ctx context.Context, executionID str
 func (g *gormStore) GetStepLogsToCompensate(ctx context.Context, executionID string) ([]*Log, error) {
 	logs := make([]*Log, 0)
 
-	err := g.db.WithContext(ctx).Where("execution_id = ? AND type = ?", executionID, LogTypeSagaStepExec).Find(&logs).Error
+	err := g.db.WithContext(ctx).Where("execution_id = ? AND type = ? AND step_error IS NULL", executionID, LogTypeSagaStepExec).Find(&logs).Error
 	if err != nil {
 		return nil, err
 	}
