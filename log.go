@@ -1,8 +1,11 @@
 package saga
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
-//noinspection ALL
+// noinspection ALL
 const (
 	LogTypeStartSaga          = "StartSaga"
 	LogTypeSagaStepExec       = "SagaStepExec"
@@ -24,7 +27,7 @@ type Log struct {
 }
 
 type Store interface {
-	AppendLog(log *Log) error
-	GetAllLogsByExecutionID(executionID string) ([]*Log, error)
-	GetStepLogsToCompensate(executionID string) ([]*Log, error)
+	AppendLog(ctx context.Context, log *Log) error
+	GetAllLogsByExecutionID(ctx context.Context, executionID string) ([]*Log, error)
+	GetStepLogsToCompensate(ctx context.Context, executionID string) ([]*Log, error)
 }

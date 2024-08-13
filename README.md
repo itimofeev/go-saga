@@ -8,7 +8,7 @@ Saga allows defining compensation functions for each step that will be automatic
 You can read more details about this pattern here https://microservices.io/patterns/data/saga.html#example-choreography-based-saga
 
 # Installing
-```go get github.com/itimofeev/go-saga```
+```go get github.com/tangelo-labs/go-saga```
 
 # Getting started
 

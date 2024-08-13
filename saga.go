@@ -7,12 +7,6 @@ import (
 	"reflect"
 )
 
-func NewSaga(name string) *Saga {
-	return &Saga{
-		Name: name,
-	}
-}
-
 type StepOptions struct {
 }
 
@@ -31,6 +25,12 @@ type Result struct {
 type Saga struct {
 	Name  string
 	steps []*Step
+}
+
+func NewSaga(name string) *Saga {
+	return &Saga{
+		Name: name,
+	}
 }
 
 func (saga *Saga) AddStep(step *Step) error {
