@@ -170,20 +170,29 @@ func unmarshalParams(types []reflect.Type, payload []byte) ([]reflect.Value, err
 }
 
 func (c *ExecutionCoordinator) compensateStep(i int, params []reflect.Value, compensateFunc reflect.Value) error {
-	checkErr(c.logStore.AppendLog(c.ctx, &Log{
-		ExecutionID: c.ExecutionID,
-		Name:        c.saga.Name,
-		Time:        time.Now(),
-		Type:        LogTypeSagaStepCompensate,
-		StepNumber:  &i,
-		StepName:    &c.saga.steps[i].Name,
-	}))
+	now := time.Now()
+
+	var errStr *string
 
 	res := compensateFunc.Call(params)
-	if err := isReturnError(res); err != nil {
-		return err
+	err := isReturnError(res)
+	if err != nil {
+		errTmp := err.Error()
+		errStr = &errTmp
 	}
-	return nil
+
+	checkErr(c.logStore.AppendLog(c.ctx, &Log{
+		ExecutionID:  c.ExecutionID,
+		Name:         c.saga.Name,
+		Time:         time.Now(),
+		Type:         LogTypeSagaStepCompensate,
+		StepNumber:   &i,
+		StepName:     &c.saga.steps[i].Name,
+		StepDuration: now.Sub(time.Now()),
+		StepError:    errStr,
+	}))
+
+	return err
 }
 
 func isReturnError(result []reflect.Value) error {
