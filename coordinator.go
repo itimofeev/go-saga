@@ -170,7 +170,7 @@ func unmarshalParams(types []reflect.Type, payload []byte) ([]reflect.Value, err
 }
 
 func (c *ExecutionCoordinator) compensateStep(i int, params []reflect.Value, compensateFunc reflect.Value) error {
-	now := time.Now()
+	startedAt := time.Now()
 
 	var errStr *string
 
@@ -188,7 +188,7 @@ func (c *ExecutionCoordinator) compensateStep(i int, params []reflect.Value, com
 		Type:         LogTypeSagaStepCompensate,
 		StepNumber:   &i,
 		StepName:     &c.saga.steps[i].Name,
-		StepDuration: now.Sub(time.Now()),
+		StepDuration: time.Now().Sub(startedAt),
 		StepError:    errStr,
 	}))
 
