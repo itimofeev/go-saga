@@ -92,7 +92,6 @@ func (c *ExecutionCoordinator) execStep(i int) {
 	}
 
 	checkErr(c.logStore.AppendLog(c.ctx, stepLog))
-	stepLog.StepDuration = time.Since(start)
 	if err != nil {
 		c.executionError = err
 		c.abort()
@@ -172,25 +171,25 @@ func unmarshalParams(types []reflect.Type, payload []byte) ([]reflect.Value, err
 func (c *ExecutionCoordinator) compensateStep(i int, params []reflect.Value, compensateFunc reflect.Value) error {
 	startedAt := time.Now()
 
-	var errStr *string
-
 	res := compensateFunc.Call(params)
 	err := isReturnError(res)
-	if err != nil {
-		errTmp := err.Error()
-		errStr = &errTmp
-	}
 
-	checkErr(c.logStore.AppendLog(c.ctx, &Log{
+	stepLog := &Log{
 		ExecutionID:  c.ExecutionID,
 		Name:         c.saga.Name,
 		Time:         time.Now(),
 		Type:         LogTypeSagaStepCompensate,
 		StepNumber:   &i,
 		StepName:     &c.saga.steps[i].Name,
-		StepDuration: time.Now().Sub(startedAt),
-		StepError:    errStr,
-	}))
+		StepDuration: time.Since(startedAt),
+	}
+
+	if err != nil {
+		errStr := err.Error()
+		stepLog.StepError = &errStr
+	}
+
+	checkErr(c.logStore.AppendLog(c.ctx, stepLog))
 
 	return err
 }
