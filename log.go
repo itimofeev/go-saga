@@ -2,6 +2,7 @@ package saga
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 )
 
@@ -15,14 +16,14 @@ const (
 )
 
 type Log struct {
-	ExecutionID  string
-	Name         string
-	Type         string
-	Time         time.Time
+	ExecutionID  string    `gorm:"index;type:varchar(255)"`
+	Name         string    `gorm:"index;type:varchar(255)"`
+	Type         string    `gorm:"type:varchar(255)"`
+	Time         time.Time `gorm:"index"`
 	StepNumber   *int
-	StepName     *string
+	StepName     *string `gorm:"type:varchar(255)"`
 	StepError    *string
-	StepPayload  []byte
+	StepPayload  json.RawMessage `gorm:"type:json"`
 	StepDuration time.Duration
 }
 

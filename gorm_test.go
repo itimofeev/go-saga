@@ -79,7 +79,7 @@ func TestGetStepLogsToCompensate(t *testing.T) {
 
 	exID := gofakeit.UUID()
 
-	log1 := &Log{ExecutionID: exID, Type: LogTypeSagaStepExec}
+	log1 := &Log{ExecutionID: exID, Type: LogTypeSagaStepExec, StepPayload: []byte(`{"key": "value"}`)}
 	log2 := &Log{ExecutionID: exID, Type: LogTypeSagaStepExec}
 	require.NoError(t, store.AppendLog(ctx, log1))
 	require.NoError(t, store.AppendLog(ctx, log2))
