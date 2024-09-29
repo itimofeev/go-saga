@@ -10,12 +10,25 @@ import (
 	"time"
 )
 
-func NewCoordinator(funcsCtx, compensateFuncsCtx context.Context, saga *Saga, logStore Store, executionID ...string) *ExecutionCoordinator {
+type ExecutionCoordinator struct {
+	ExecutionID string
+
+	aborted          bool
+	executionError   error
+	compensateErrors []error
+
+	ctx context.Context
+
+	saga *Saga
+
+	logStore Store
+}
+
+func NewCoordinator(ctx context.Context, saga *Saga, logStore Store, executionID ...string) *ExecutionCoordinator {
 	c := &ExecutionCoordinator{
-		funcsCtx:           funcsCtx,
-		compensateFuncsCtx: compensateFuncsCtx,
-		saga:               saga,
-		logStore:           logStore,
+		ctx:      ctx,
+		saga:     saga,
+		logStore: logStore,
 	}
 	if len(executionID) > 0 {
 		c.ExecutionID = executionID[0]
@@ -25,24 +38,9 @@ func NewCoordinator(funcsCtx, compensateFuncsCtx context.Context, saga *Saga, lo
 	return c
 }
 
-type ExecutionCoordinator struct {
-	ExecutionID string
-
-	aborted          bool
-	executionError   error
-	compensateErrors []error
-
-	funcsCtx           context.Context
-	compensateFuncsCtx context.Context
-
-	saga *Saga
-
-	logStore Store
-}
-
 func (c *ExecutionCoordinator) Play() *Result {
 	executionStart := time.Now()
-	checkErr(c.logStore.AppendLog(&Log{
+	checkErr(c.logStore.AppendLog(c.ctx, &Log{
 		ExecutionID: c.ExecutionID,
 		Name:        c.saga.Name,
 		Time:        time.Now(),
@@ -53,7 +51,7 @@ func (c *ExecutionCoordinator) Play() *Result {
 		c.execStep(i)
 	}
 
-	checkErr(c.logStore.AppendLog(&Log{
+	checkErr(c.logStore.AppendLog(c.ctx, &Log{
 		ExecutionID:  c.ExecutionID,
 		Name:         c.saga.Name,
 		Time:         time.Now(),
@@ -70,7 +68,7 @@ func (c *ExecutionCoordinator) execStep(i int) {
 	start := time.Now()
 	f := c.saga.steps[i].Func
 
-	params := []reflect.Value{reflect.ValueOf(c.funcsCtx)}
+	params := []reflect.Value{reflect.ValueOf(c.ctx)}
 	resp := getFuncValue(f).Call(params)
 	err := isReturnError(resp)
 
@@ -93,8 +91,7 @@ func (c *ExecutionCoordinator) execStep(i int) {
 		stepLog.StepError = &errStr
 	}
 
-	checkErr(c.logStore.AppendLog(stepLog))
-	stepLog.StepDuration = time.Since(start)
+	checkErr(c.logStore.AppendLog(c.ctx, stepLog))
 	if err != nil {
 		c.executionError = err
 		c.abort()
@@ -111,11 +108,11 @@ func marshalResp(resp []reflect.Value) ([]byte, error) {
 }
 
 func (c *ExecutionCoordinator) abort() {
-	toCompensateLogs, err := c.logStore.GetStepLogsToCompensate(c.ExecutionID)
+	toCompensateLogs, err := c.logStore.GetStepLogsToCompensate(c.ctx, c.ExecutionID)
 	checkErr(err, "c.logStore.GetAllLogsByExecutionID(c.ExecutionID)")
 
 	stepsToCompensate := len(toCompensateLogs)
-	checkErr(c.logStore.AppendLog(&Log{
+	checkErr(c.logStore.AppendLog(c.ctx, &Log{
 		ExecutionID: c.ExecutionID,
 		Name:        c.saga.Name,
 		Time:        time.Now(),
@@ -139,7 +136,7 @@ func (c *ExecutionCoordinator) abort() {
 		checkErr(err, "unmarshalParams()")
 
 		params := make([]reflect.Value, 0)
-		params = append(params, reflect.ValueOf(c.compensateFuncsCtx))
+		params = append(params, reflect.ValueOf(c.ctx))
 		params = append(params, unmarshal...)
 
 		if err := c.compensateStep(*toCompensateLog.StepNumber, params, compensateFuncValue); err != nil {
@@ -172,20 +169,29 @@ func unmarshalParams(types []reflect.Type, payload []byte) ([]reflect.Value, err
 }
 
 func (c *ExecutionCoordinator) compensateStep(i int, params []reflect.Value, compensateFunc reflect.Value) error {
-	checkErr(c.logStore.AppendLog(&Log{
-		ExecutionID: c.ExecutionID,
-		Name:        c.saga.Name,
-		Time:        time.Now(),
-		Type:        LogTypeSagaStepCompensate,
-		StepNumber:  &i,
-		StepName:    &c.saga.steps[i].Name,
-	}))
+	startedAt := time.Now()
 
 	res := compensateFunc.Call(params)
-	if err := isReturnError(res); err != nil {
-		return err
+	err := isReturnError(res)
+
+	stepLog := &Log{
+		ExecutionID:  c.ExecutionID,
+		Name:         c.saga.Name,
+		Time:         time.Now(),
+		Type:         LogTypeSagaStepCompensate,
+		StepNumber:   &i,
+		StepName:     &c.saga.steps[i].Name,
+		StepDuration: time.Since(startedAt),
 	}
-	return nil
+
+	if err != nil {
+		errStr := err.Error()
+		stepLog.StepError = &errStr
+	}
+
+	checkErr(c.logStore.AppendLog(c.ctx, stepLog))
+
+	return err
 }
 
 func isReturnError(result []reflect.Value) error {

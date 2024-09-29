@@ -8,7 +8,7 @@ Saga allows defining compensation functions for each step that will be automatic
 You can read more details about this pattern here https://microservices.io/patterns/data/saga.html#example-choreography-based-saga
 
 # Installing
-```go get github.com/itimofeev/go-saga```
+```go get github.com/tangelo-labs/go-saga```
 
 # Getting started
 
@@ -31,7 +31,7 @@ func TestExample(t *testing.T) {
     }))
     
     store := New()
-    c := NewCoordinator(context.Background(), context.Background(), s, store)
+    c := NewCoordinator(context.Background(), s, store)
     require.Error(t, c.Play().ExecutionError)
     
     // x is still 0, because saga rolled back all applied steps
@@ -43,10 +43,10 @@ func TestExample(t *testing.T) {
 Coordinator stores all sagas executions using `Store` interface.
 ```
 type Store interface {
-	AppendLog(log *Log) error
-	GetAllLogsByExecutionID(executionID string) ([]*Log, error)
-	GetStepLogsToCompensate(executionID string) ([]*Log, error)
+	AppendLog(ctx context.Context, log *Log) error
+	GetAllLogsByExecutionID(ctx context.Context, executionID string) ([]*Log, error)
+	GetStepLogsToCompensate(ctx context.Context, executionID string) ([]*Log, error)
 }
 ```
-This library implements only in-memory store to eliminate dependencies.
-But it's easy to implement this interface using any DB, for example PostgreSQL.
+This library implements only in-memory and gorm ORM store to eliminate extra dependencies.
+But it's easy to implement this interface using any DB such Redis, or using the included ORM in order to connect to MySQL, SQLite, PostgreSQL, etc.

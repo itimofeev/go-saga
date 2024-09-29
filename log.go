@@ -1,8 +1,12 @@
 package saga
 
-import "time"
+import (
+	"context"
+	"encoding/json"
+	"time"
+)
 
-//noinspection ALL
+// noinspection ALL
 const (
 	LogTypeStartSaga          = "StartSaga"
 	LogTypeSagaStepExec       = "SagaStepExec"
@@ -12,19 +16,19 @@ const (
 )
 
 type Log struct {
-	ExecutionID  string
-	Name         string
-	Type         string
-	Time         time.Time
+	ExecutionID  string    `gorm:"index;type:varchar(255)"`
+	Name         string    `gorm:"index;type:varchar(255)"`
+	Type         string    `gorm:"type:varchar(255)"`
+	Time         time.Time `gorm:"index"`
 	StepNumber   *int
-	StepName     *string
+	StepName     *string `gorm:"type:varchar(255)"`
 	StepError    *string
-	StepPayload  []byte
+	StepPayload  json.RawMessage `gorm:"type:json"`
 	StepDuration time.Duration
 }
 
 type Store interface {
-	AppendLog(log *Log) error
-	GetAllLogsByExecutionID(executionID string) ([]*Log, error)
-	GetStepLogsToCompensate(executionID string) ([]*Log, error)
+	AppendLog(ctx context.Context, log *Log) error
+	GetAllLogsByExecutionID(ctx context.Context, executionID string) ([]*Log, error)
+	GetStepLogsToCompensate(ctx context.Context, executionID string) ([]*Log, error)
 }
